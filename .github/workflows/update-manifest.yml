@@ -1,0 +1,51 @@
+name: Update Image Manifest
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'images/**'
+
+  workflow_dispatch:
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate images/manifest.json
+        run: |
+          cd images
+          # Collect image files (common web-safe formats), output sorted JSON array
+          python3 - <<'EOF'
+          import json, os, pathlib
+
+          exts = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg', '.bmp'}
+          images_dir = pathlib.Path('.')
+          files = sorted(
+              f.name for f in images_dir.iterdir()
+              if f.is_file() and f.suffix.lower() in exts
+          )
+          with open('manifest.json', 'w') as fh:
+              json.dump(files, fh, indent=2)
+              fh.write('\n')
+          print(f"Wrote {len(files)} image(s) to manifest.json")
+          EOF
+
+      - name: Commit updated manifest
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add images/manifest.json
+          if git diff --cached --quiet; then
+            echo "manifest.json is already up to date"
+          else
+            git commit -m "chore: update images/manifest.json"
+            git push
+          fi
