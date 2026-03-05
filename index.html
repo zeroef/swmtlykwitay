@@ -63,6 +63,15 @@
     const INTERVAL_MS = 5000;
     const FADE_MS = 1000;
 
+    // Fisher-Yates shuffle — randomises array in-place
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
     async function loadManifest() {
       const res = await fetch('images/manifest.json', { cache: 'no-store' });
       if (!res.ok) throw new Error('manifest not found');
@@ -94,11 +103,33 @@
 
       if (slides.length === 1) return; // Only one image — just show it
 
-      setInterval(() => {
+      function showSlide(index) {
         slides[current].classList.remove('active');
-        current = (current + 1) % slides.length;
+        // Adding slides.length before modulo handles wrapping in both directions
+        current = (index + slides.length) % slides.length;
         slides[current].classList.add('active');
-      }, INTERVAL_MS);
+      }
+
+      function advance() {
+        showSlide(current + 1);
+      }
+
+      let timer = setInterval(advance, INTERVAL_MS);
+
+      function resetTimer() {
+        clearInterval(timer);
+        timer = setInterval(advance, INTERVAL_MS);
+      }
+
+      const container = document.getElementById('slideshow');
+      container.addEventListener('click', (e) => {
+        if (e.clientX >= window.innerWidth / 2) {
+          showSlide(current + 1);
+        } else {
+          showSlide(current - 1);
+        }
+        resetTimer();
+      });
     }
 
     async function init() {
@@ -109,6 +140,7 @@
           noImages.classList.add('visible');
           return;
         }
+        shuffle(images);
         const slides = buildSlides(images);
         startSlideshow(slides);
       } catch (e) {
